@@ -23,7 +23,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest tests/
+          PYTHONPATH=. pytest tests/
 
       - name: Smoke test model training scripts
         run: |
