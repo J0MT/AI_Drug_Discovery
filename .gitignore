@@ -1,6 +1,6 @@
 # Ignore data files
-*.csv
-data/*
+# *.csv
+# data/*
 dev_test.py
 
 
