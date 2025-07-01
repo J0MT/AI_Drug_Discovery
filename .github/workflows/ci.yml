@@ -25,11 +25,11 @@ jobs:
         run: |
           PYTHONPATH=. pytest tests/
 
-      - name: Smoke test model training scripts
+      - name: Run dry-run for all models
         run: |
           for d in models/*; do
             if [ -f "$d/train.py" ]; then
-              echo "Dry-running: $d/train.py"
-              python "$d/train.py" --dry-run
+              echo "Dry-running $d/train.py"
+              PYTHONPATH=. python -m $(echo $d | sed 's/\//./g').train --dry-run
             fi
           done
