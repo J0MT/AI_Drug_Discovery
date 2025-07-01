@@ -1,13 +1,14 @@
 import argparse
 import pandas as pd
+import torch
 from utils.preprocessing import preprocess, split_data
 from utils.evaluation import evaluate
-from models.rf.model import train  
+from models.transformer.model import train  
 
 def main(args):
     if args.dry_run:
         print(f"Dry run successful for {__file__}")
-        return #skip the rest
+        return
 
     if not args.data:
         raise ValueError("You must provide --data for full training")
@@ -17,11 +18,18 @@ def main(args):
     X, y = preprocess(df)
     X_train, X_test, y_train, y_test = split_data(X, y)
 
-    # Train and evaluate model
+    # Train the Transformer model
     model = train(X_train, y_train)
-    preds = model.predict(X_test)
+
+    # Inference using torch
+    with torch.no_grad():
+        model.eval()
+        X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
+        preds = model(X_test_tensor).squeeze().numpy()
+
+    # Evaluate predictions
     metrics = evaluate(y_test, preds)
-    print(f"[RF] RMSE: {metrics['rmse']:.4f} | R²: {metrics['r2']:.4f}")
+    print(f"[Transformer] RMSE: {metrics['rmse']:.4f} | R²: {metrics['r2']:.4f}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
