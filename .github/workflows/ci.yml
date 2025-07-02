@@ -2,7 +2,7 @@ name: Test, Lint, and Smoke-Train Models
 
 on: [push, pull_request]
 
-jobs:`
+jobs:
   ci-pipeline:
     runs-on: ubuntu-latest
 

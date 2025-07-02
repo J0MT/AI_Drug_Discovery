@@ -4,7 +4,7 @@ import subprocess
 
 
 def test_preprocessing_and_split():
-    subprocess.run(["dvc", "pull", "data/data_200.csv.dvc"], check=True) 
+    subprocess.run(["dvc", "pull", "data/data_200.csv.dvc"], check=True)
 
     df = pd.read_csv("data/data_200.csv")
     X, y = preprocess(df)
