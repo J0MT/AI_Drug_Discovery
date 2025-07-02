@@ -3,7 +3,8 @@ import pandas as pd
 import torch
 from utils.preprocessing import preprocess, split_data
 from utils.evaluation import evaluate
-from models.transformer.model import train  
+from models.transformer.model import train
+
 
 def main(args):
     if args.dry_run:
@@ -30,6 +31,7 @@ def main(args):
     # Evaluate predictions
     metrics = evaluate(y_test, preds)
     print(f"[Transformer] RMSE: {metrics['rmse']:.4f} | R²: {metrics['r2']:.4f}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

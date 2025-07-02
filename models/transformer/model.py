@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class TransformerRegressor(nn.Module):
     def __init__(self, input_dim, d_model=128, nhead=4, num_layers=2):
         super().__init__()
@@ -13,6 +14,7 @@ class TransformerRegressor(nn.Module):
         x = self.input_fc(x).unsqueeze(1)  # shape: (batch_size, seq_len=1, d_model)
         x = self.transformer(x)
         return self.output(x[:, 0, :])
+
 
 def train(X_train, y_train, epochs=5):
     input_dim = X_train.shape[1]

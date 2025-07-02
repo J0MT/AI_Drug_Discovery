@@ -4,3 +4,6 @@ pytest==8.4.1
 scikit-learn==1.2.2
 torch==2.5.1
 xgboost==2.1.1
+black==25.1.0
+flake8==7.3.0
+

@@ -21,6 +21,12 @@ jobs:
           pip install -r requirements.txt
           pip install black flake8
 
+      - name: Run black (check only)
+        run: black . --check
+
+      - name: Run flake8 linter
+        run: flake8 .
+
       - name: Run unit tests
         run: |
           PYTHONPATH=. pytest tests/

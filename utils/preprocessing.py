@@ -1,6 +1,5 @@
-import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+
 
 def preprocess(df):
     df = df.dropna(subset=["pIC50", "docking_score"])

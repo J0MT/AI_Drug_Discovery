@@ -4,6 +4,7 @@ from utils.preprocessing import preprocess, split_data
 from utils.evaluation import evaluate
 from models.xgb.model import train
 
+
 def main(args):
     if args.dry_run:
         print(f"Dry run successful for {__file__}")
@@ -24,6 +25,7 @@ def main(args):
     preds = model.predict(X_test)
     metrics = evaluate(y_test, preds)
     print(f"[XGBoost] RMSE: {metrics['rmse']:.4f} | R²: {metrics['r2']:.4f}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

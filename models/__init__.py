@@ -1,5 +1,5 @@
-from .rf import train
-from .xgb import train
-from .transformer import train
+from .rf import train as train_rf
+from .xgb import train as train_xbg
+from .transformer import train as train_transformer
 
-__all__ = ["train_rf", "train_xgb", "train_transformer"]
+__all__ = ["train_rf", "train_xbg", "train_transformer"]

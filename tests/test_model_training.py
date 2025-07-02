@@ -1,10 +1,9 @@
 import pytest
 import importlib
 import pandas as pd
-import sys
-import os
+
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from utils.preprocessing import preprocess, split_data
+from utils import preprocess, split_data
 
 # Dynamic import paths for each model
 MODEL_PATHS = {
@@ -12,6 +11,7 @@ MODEL_PATHS = {
     "xgb": "models.xgb.model",
     "transformer": "models.transformer.model",
 }
+
 
 @pytest.mark.parametrize("model_key", MODEL_PATHS.keys())
 def test_model_training(model_key):
@@ -30,6 +30,9 @@ def test_model_training(model_key):
     # Validate model object
     if model_key == "transformer":
         import torch.nn as nn
-        assert isinstance(model, nn.Module), f"{model_key} did not return a torch.nn.Module"
+
+        assert isinstance(
+            model, nn.Module
+        ), f"{model_key} did not return a torch.nn.Module"
     else:
         assert hasattr(model, "predict"), f"{model_key} model lacks a .predict() method"
