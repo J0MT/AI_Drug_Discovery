@@ -1,18 +1,15 @@
 name: AI_Drug_conda
 channels:
-  - conda-forge
+  - defaults
 dependencies:
   - python=3.9
-  - pip
   - pandas
-  - numpy
   - scikit-learn
-  - xgboost
   - pytorch
+  - xgboost
+  - numpy
   - pytest
   - black
   - flake8
   - dvc-s3
-  - fsspec=2025.5.1
-  - s3fs=2025.5.1
-  - tzdata
+prefix: C:\Users\jomkr\miniconda3\envs\AI_Drug_conda

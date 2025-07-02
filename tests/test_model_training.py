@@ -1,6 +1,7 @@
 import pytest
 import importlib
 import pandas as pd
+import subprocess
 
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils import preprocess, split_data
@@ -15,6 +16,8 @@ MODEL_PATHS = {
 
 @pytest.mark.parametrize("model_key", MODEL_PATHS.keys())
 def test_model_training(model_key):
+    subprocess.run(["dvc", "pull", "data/data_200.csv.dvc"], check=True)
+
     # Dynamically import the model module
     module = importlib.import_module(MODEL_PATHS[model_key])
     train_fn = getattr(module, "train")

@@ -2,7 +2,7 @@ name: Test, Lint, and Smoke-Train Models
 
 on: [push, pull_request]
 
-jobs:
+jobs:`
   ci-pipeline:
     runs-on: ubuntu-latest
 
@@ -20,6 +20,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install black flake8
+      
+      - name: Set up AWS credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region eu-north-1
 
       - name: Run black (check only)
         run: black . --check
