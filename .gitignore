@@ -32,7 +32,6 @@ AI_Drug_conda/
 # Ignore Airflow & DVC internals (if used)
 .airflow/
 dvc.lock
-.dvc/
 
 # VSCode and system files
 .vscode/
