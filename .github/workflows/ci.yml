@@ -21,10 +21,10 @@ jobs:
           pip install -r requirements.txt
           pip install black flake8
       
-      - name: Debug Secrets (TEMPORARY)
-        run: |
-          echo "Access Key is: ${{ secrets.AWS_ACCESS_KEY_ID }}"
-          echo "Secret Key is: ${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+      # - name: Debug Secrets (TEMPORARY)
+      #   run: |
+      #     echo "Access Key is: ${{ secrets.AWS_ACCESS_KEY_ID }}"
+      #     echo "Secret Key is: ${{ secrets.AWS_SECRET_ACCESS_KEY }}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
