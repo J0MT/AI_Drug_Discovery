@@ -1,0 +1,17 @@
+input_dim: 99
+d_model: 128
+nhead: 4
+num_layers: 2
+lr: 0.001
+epochs: 100
+data_path: data_200.csv
+
+model_type: transformer
+model_path: models/transformer
+model_file: train.py
+model_script: models/transformer/train.py
+model_source: models/transformer/model.py
+config_path: configs/transformer.yaml
+signature_files:
+  - models/transformer/model.py
+  - models/transformer/train.py

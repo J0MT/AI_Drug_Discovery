@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(terraform show:*)",
+      "Bash(aws:*)",
+      "Bash(terraform:*)",
+      "Bash(del terraform.tfvars.example)",
+      "Bash(Remove-Item terraform.tfvars.example)",
+      "Bash(rm:*)",
+      "Bash(ping:*)",
+      "Bash(nmap:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(move ec2-setup-clean.sh ec2-setup.sh)",
+      "Bash(mv:*)",
+      "Bash(scp:*)",
+      "Bash(ssh:*)"
+    ],
+    "deny": []
+  }
+}

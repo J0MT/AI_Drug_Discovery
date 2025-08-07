@@ -1,0 +1,154 @@
+name: Test, Lint, and Smoke-Train Models
+
+on: [push, pull_request]
+
+jobs:
+  ci-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install black flake8
+      
+      # - name: Debug Secrets (TEMPORARY)
+      #   run: |
+      #     echo "Access Key is: ${{ secrets.AWS_ACCESS_KEY_ID }}"
+      #     echo "Secret Key is: ${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Run black (check only)
+        run: black . --check
+
+      - name: Run flake8 linter
+        run: flake8 .
+
+      - name: Run unit tests
+        run: |
+          PYTHONPATH=. pytest tests/
+
+      - name: Run dry-run for all models
+        run: |
+          for d in models/*; do
+            if [ -f "$d/train.py" ]; then
+              echo "Dry-running $d/train.py"
+              PYTHONPATH=. python -m $(echo $d | sed 's/\//./g').train --dry-run
+            fi
+          done
+
+      - name: Build and Push Docker Image
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "Building Docker image for deployment..."
+          
+          # Login to GitHub Container Registry
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Set image name and tag
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/ai-drug-training"
+          IMAGE_TAG="${{ github.sha }}"
+          
+          # Build Docker image
+          docker build -t $IMAGE_NAME:$IMAGE_TAG -t $IMAGE_NAME:latest .
+          
+          # Push to registry
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker push $IMAGE_NAME:latest
+          
+          echo "Docker image pushed: $IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Trigger AWS Training Pipeline
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "All tests passed! Triggering AWS training pipeline..."
+          
+          # Start EC2 instance if stopped
+          INSTANCE_ID="${{ secrets.AWS_EC2_INSTANCE_ID }}"
+          aws ec2 start-instances --instance-ids $INSTANCE_ID
+          
+          # Wait for instance to be running
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          
+          # Get instance public IP
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+          
+          # Wait for instance to be ready
+          echo "Waiting for instance to be ready at $INSTANCE_IP..."
+          sleep 60  # Give instance time to boot
+          
+          # SSH to EC2 and update Docker Compose with new image
+          echo "Deploying new Docker image to EC2..."
+          
+          # Create deployment script on EC2
+          cat << 'EOF' > deploy.sh
+          #!/bin/bash
+          cd /home/ubuntu/AI_Drug
+          
+          # Login to GitHub Container Registry
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          
+          # Update environment file with new image tag
+          echo "TRAINING_IMAGE=ghcr.io/$GITHUB_REPO/ai-drug-training:$GITHUB_SHA" > .env
+          echo "POSTGRES_PASSWORD=mlflow_secure_password_2024" >> .env
+          
+          # Pull new image
+          docker pull ghcr.io/$GITHUB_REPO/ai-drug-training:$GITHUB_SHA
+          
+          # Start MLflow and PostgreSQL containers
+          docker-compose -f docker-compose.training.yml up -d mlflow postgres
+          
+          # Wait for MLflow to be ready
+          timeout 300 bash -c 'until curl -f http://localhost:5000/health; do sleep 10; done'
+          
+          echo "Deployment completed successfully"
+          EOF
+          
+          # Copy deployment script to EC2 and execute
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > ec2-key.pem
+          chmod 600 ec2-key.pem
+          
+          scp -o StrictHostKeyChecking=no -i ec2-key.pem deploy.sh ubuntu@$INSTANCE_IP:/tmp/deploy.sh
+          
+          ssh -o StrictHostKeyChecking=no -i ec2-key.pem ubuntu@$INSTANCE_IP \
+            "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+             GITHUB_ACTOR=${{ github.actor }} \
+             GITHUB_REPO=${{ github.repository_owner }} \
+             GITHUB_SHA=${{ github.sha }} \
+             bash /tmp/deploy.sh"
+          
+          # Trigger Airflow DAG with Docker image info
+          curl -X POST "http://$INSTANCE_IP:8080/api/v1/dags/ai_drug_training_docker/dagRuns" \
+            -H "Content-Type: application/json" \
+            -u "${{ secrets.AIRFLOW_USERNAME }}:${{ secrets.AIRFLOW_PASSWORD }}" \
+            -d '{
+              "conf": {
+                "docker_image": "ghcr.io/'${{ github.repository_owner }}'/ai-drug-training:'${{ github.sha }}'",
+                "github_sha": "'${{ github.sha }}'",
+                "github_ref": "'${{ github.ref }}'",
+                "triggered_by": "github_actions"
+              }
+            }'
+          
+          echo "Training pipeline triggered successfully!"
+          echo "Docker image: ghcr.io/${{ github.repository_owner }}/ai-drug-training:${{ github.sha }}"
+          echo "Monitor progress at: http://$INSTANCE_IP:8080"
+          echo "MLflow UI at: http://$INSTANCE_IP:5000"
+          
+          # Cleanup
+          rm -f ec2-key.pem deploy.sh

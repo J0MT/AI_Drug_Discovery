@@ -1,0 +1,18 @@
+name: AI_Drug_conda
+channels:
+  - defaults
+dependencies:
+  - black
+  - pytest
+  - s3fs==2024.6.1
+  - scikit-learn
+  - fsspec==2024.6.1
+  - numpy
+  - flake8
+  - pip
+  - pytorch
+  - xgboost
+  - pandas
+  - python==3.8.20
+  - awscli
+prefix: C:\Users\jomkr\miniconda3\envs\AI_Drug_conda

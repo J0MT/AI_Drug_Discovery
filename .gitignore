@@ -1,0 +1,52 @@
+# Ignore data files
+# *.csv
+# data/*
+/data/data_200.csv
+dev_test.py
+
+
+# Ignore model artifacts and logs
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.onnx
+logs/
+mlruns/
+
+# Ignore Jupyter/IPython and Python cache
+*.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+*.so
+
+# Ignore environment files and credentials
+.env
+secrets.json
+
+# Ignore virtual environments
+venv/
+.env/
+.venv/
+AI_Drug_conda/
+
+# Ignore Airflow & DVC internals (if used)
+.airflow/
+dvc.lock
+
+# VSCode and system files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Claude Code files (AI development assistant)  
+.claude/
+CLAUDE.md
+projectplan.md
