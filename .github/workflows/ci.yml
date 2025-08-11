@@ -58,8 +58,7 @@ try:
     print(f'✓ {config.model_type} configuration is valid')
 except Exception as e:
     print(f'✗ Configuration error: {e}')
-    exit(1)
-              "
+    exit(1)"
             fi
           done
 
