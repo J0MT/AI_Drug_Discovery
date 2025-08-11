@@ -1,18 +1,17 @@
 #!/bin/bash
-# EC2 Instance Setup Script for Training Pipeline
-# Single Instance: Training + MLflow with Docker Compose
-# Run this script on a fresh Ubuntu EC2 instance
+# EC2 setup script for One-Shot Training via SSM
+# Installs Docker, clones repo, starts persistent MLflow service
 
 set -e
 
-echo "Starting training instance with containerized MLflow..."
+echo "Setting up AI Drug Discovery One-Shot Training environment..."
 
 # Update system
 sudo apt-get update -y
 sudo apt-get upgrade -y
 
 # Install Docker and Docker Compose
-sudo apt-get install -y ca-certificates curl gnupg lsb-release
+sudo apt-get install -y ca-certificates curl gnupg lsb-release git unzip
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
@@ -22,199 +21,113 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plu
 # Add ubuntu user to docker group
 sudo usermod -aG docker ubuntu
 
-# Install basic Python tools (for non-containerized training option)
-sudo apt-get install -y python3 python3-pip python3-venv git
-
-# Install AWS CLI
+# Install AWS CLI v2
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
 rm -rf aws awscliv2.zip
 
-# Create persistent data directories on EBS
-sudo mkdir -p /mnt/mlflow-data/postgres
-sudo mkdir -p /mnt/training-data
-sudo chown -R ubuntu:ubuntu /mnt/mlflow-data
-sudo chown -R ubuntu:ubuntu /mnt/training-data
+# Create persistent MLflow data directory
+sudo mkdir -p /opt/mlflow
+sudo chown -R ubuntu:ubuntu /opt/mlflow
 
-# Create project directory
-mkdir -p /home/ubuntu/AI_Drug
+# Clone the project repository  
+cd /home/ubuntu
+git clone https://github.com/${github_repo}/AI_Drug.git AI_Drug
 cd /home/ubuntu/AI_Drug
 
-# Clone repository (replace with your repo URL when ready)
-# git clone https://github.com/YOUR_USERNAME/AI_Drug_Discovery.git .
-# For now, we'll create a placeholder structure
-mkdir -p models configs tests utils airflow/dags
+# Make ubuntu owner of project directory
+sudo chown -R ubuntu:ubuntu /home/ubuntu/AI_Drug
 
-# Create environment file for MLflow with secure password
-cat > .env << EOF
-POSTGRES_PASSWORD=$(openssl rand -base64 32)
-EOF
+# Start persistent MLflow service with Docker Compose
+echo "Starting persistent MLflow service..."
+docker-compose up -d
 
-# Create Python virtual environment (for non-containerized training)
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
+# Wait for MLflow service to be ready
+echo "Waiting for MLflow service to be ready..."
+sleep 30
 
-# Install core Python dependencies (without requirements.txt for now)
-pip install \
-    pandas \
-    numpy \
-    scikit-learn \
-    torch \
-    xgboost \
-    mlflow \
-    dvc[s3] \
-    requests \
-    psutil
+# Verify MLflow is running
+echo "Checking MLflow service status..."
+docker-compose ps
 
-# Create training utilities
-cat > /home/ubuntu/run-training.sh << 'EOF'
+# Get public IP for access URLs
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+
+# Create status check script
+cat > /home/ubuntu/check-mlflow.sh << 'EOF'
 #!/bin/bash
 cd /home/ubuntu/AI_Drug
 
-echo "Starting MLflow services..."
-# Start MLflow + PostgreSQL via Docker Compose
-docker-compose -f docker-compose.training.yml up -d mlflow postgres
+echo "=== Docker Container Status ==="
+docker-compose ps
 
-# Wait for MLflow to be ready
-echo "Waiting for MLflow to start..."
-until curl -s http://localhost:5000/health > /dev/null 2>&1; do
-    echo "Waiting for MLflow..."
-    sleep 5
-done
-
-echo "MLflow is ready at http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):5000"
-
-# Set MLflow tracking URI for training
-export MLFLOW_TRACKING_URI=http://localhost:5000
-
-# Run training (choose one approach):
-# Option 1: Direct Python training
-if [ -f "venv/bin/activate" ]; then
-    source venv/bin/activate
-    echo "Running training with local Python environment..."
-    python train_dispatch.py || echo "train_dispatch.py not found - run your training script manually"
+echo ""
+echo "=== MLflow Health Check ==="
+echo -n "MLflow Tracking Server: "
+if curl -s http://localhost:5000/health > /dev/null 2>&1; then
+    echo "HEALTHY"
 else
-    echo "Python virtual environment not found"
+    echo "DOWN - checking if service is running..."
+    docker-compose logs mlflow | tail -10
 fi
 
-# Option 2: Container-based training (uncomment if you prefer)
-# echo "Running training in container..."
-# docker-compose -f docker-compose.training.yml run --rm training python train_dispatch.py
+echo ""
+echo "=== Access URLs ==="
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+echo "MLflow UI: http://$PUBLIC_IP:5000"
 
-echo "Training completed. Check results at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):5000"
-echo "MLflow data persists in /mnt/mlflow-data/"
+echo ""
+echo "=== MLflow Data Persistence ==="
+echo "SQLite Database: /opt/mlflow/mlruns.db"
+echo "S3 Artifacts: s3://ai-drug-artifacts/"
+
+echo ""
+echo "=== Training via SSM ==="
+echo "Training containers will join the 'mlflow_default' network and connect to MLflow at http://mlflow:5000"
 EOF
 
-chmod +x /home/ubuntu/run-training.sh
+chmod +x /home/ubuntu/check-mlflow.sh
 
-# Create MLflow startup script
-cat > /home/ubuntu/start-mlflow.sh << 'EOF'
+# Create auto-start script for reboots
+cat > /home/ubuntu/start-mlflow.sh << 'EOF' 
 #!/bin/bash
 cd /home/ubuntu/AI_Drug
-
-echo "Starting MLflow services only..."
-docker-compose -f docker-compose.training.yml up -d mlflow postgres
-
-echo "Waiting for MLflow to start..."
-until curl -s http://localhost:5000/health > /dev/null 2>&1; do
-    echo "Waiting for MLflow..."
-    sleep 5
-done
-
-echo "MLflow started at http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):5000"
+echo "Starting MLflow service..."
+docker-compose up -d
+echo "MLflow started. Check status with: /home/ubuntu/check-mlflow.sh"
 EOF
 
 chmod +x /home/ubuntu/start-mlflow.sh
 
-# Create shutdown script
-cat > /home/ubuntu/shutdown-after-training.sh << 'EOF'
-#!/bin/bash
-echo "Shutting down MLflow services..."
-cd /home/ubuntu/AI_Drug
-docker-compose -f docker-compose.training.yml down
-
-echo "Training instance will shut down in 2 minutes..."
-echo "PostgreSQL data is preserved in /mnt/mlflow-data/"
-echo "S3 artifacts are preserved in s3://ai-drug-data/mlflow-artifacts"
-sudo shutdown -h +2
-EOF
-
-chmod +x /home/ubuntu/shutdown-after-training.sh
-
-# Complete setup with final instructions
-cat > /home/ubuntu/setup-complete.txt << EOF
-Training Instance Setup Complete!
-
-📋 Next Steps:
-1. Copy your project files to this instance:
-   - Copy docker-compose.training.yml to /home/ubuntu/AI_Drug/
-   - Copy your training scripts (train_dispatch.py, models/, etc.)
-   - Or set up git clone in the setup script
-
-2. Start MLflow services:
-   /home/ubuntu/start-mlflow.sh
-
-3. Run training:
-   /home/ubuntu/run-training.sh
-
-4. Access MLflow UI:
-   http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):5000
-
-5. Safely shutdown when done:
-   /home/ubuntu/shutdown-after-training.sh
-
-🎯 Key Features:
-- ✅ Docker and Docker Compose installed
-- ✅ Python environment ready
-- ✅ MLflow + PostgreSQL containerized setup
-- ✅ Persistent data storage (/mnt/mlflow-data/)
-- ✅ S3 artifact storage configured
-- ✅ Training scripts ready
-
-💾 Data Persistence:
-- PostgreSQL data: /mnt/mlflow-data/postgres (survives shutdowns)
-- Model artifacts: s3://ai-drug-data/mlflow-artifacts
-- Training data: /mnt/training-data
-
-🌐 Services:
-- MLflow UI: Port 5000
-- Training: On-demand execution
-- All services managed via Docker Compose
-
-EOF
-
-# Auto-start MLflow on boot (optional)
-cat > /home/ubuntu/boot-setup.sh << 'EOF'
-#!/bin/bash
-# Auto-start MLflow when instance boots (optional)
-cd /home/ubuntu/AI_Drug
-if [ -f "docker-compose.training.yml" ]; then
-    /home/ubuntu/start-mlflow.sh
-    echo "MLflow started automatically on boot"
-else
-    echo "docker-compose.training.yml not found - MLflow not started"
-fi
-EOF
-
-chmod +x /home/ubuntu/boot-setup.sh
-
-# Add to crontab for auto-start on boot (optional)
-(crontab -l 2>/dev/null; echo "@reboot /home/ubuntu/boot-setup.sh") | crontab -
+# Add to crontab for auto-start on boot
+(crontab -l 2>/dev/null; echo "@reboot sleep 30 && /home/ubuntu/start-mlflow.sh") | crontab -
 
 echo "================================================================================"
-echo "🎉 EC2 Setup Completed Successfully!"
+echo "AI Drug Discovery One-Shot Training Environment Ready"
 echo "================================================================================"
 echo ""
-echo "📋 Next Steps:"
-echo "1. Copy docker-compose.training.yml to /home/ubuntu/AI_Drug/"
-echo "2. Copy your training code to /home/ubuntu/AI_Drug/"
-echo "3. Run: /home/ubuntu/start-mlflow.sh"
-echo "4. Run: /home/ubuntu/run-training.sh"
+echo "Services Running:"
+echo "  - MLflow Server (Port 5000) - Persistent experiment tracking"
+echo "  - SQLite Backend - /opt/mlflow/mlruns.db"
+echo "  - S3 Artifacts - s3://ai-drug-artifacts/"
 echo ""
-echo "🌐 MLflow UI will be available at:"
-echo "   http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):5000"
+echo "Access URLs:"
+echo "  - MLflow UI: http://$PUBLIC_IP:5000"
 echo ""
-echo "📖 Full instructions: /home/ubuntu/setup-complete.txt"
+echo "Training Architecture:"
+echo "  - One-shot training via SSM Run Command"
+echo "  - Training containers join 'mlflow_default' network"
+echo "  - Internal MLflow connection: http://mlflow:5000"
+echo "  - Composite run key idempotency (skip duplicate runs)"
+echo ""
+echo "Management Scripts:"
+echo "  - Check MLflow: /home/ubuntu/check-mlflow.sh"
+echo "  - Start MLflow: /home/ubuntu/start-mlflow.sh"
+echo ""
+echo "Data Persistence:"
+echo "  - MLflow DB: /opt/mlflow/mlruns.db (EBS persistent)"
+echo "  - Model Artifacts: S3 bucket (permanent storage)"
+echo ""
+echo "Auto-restart: MLflow restarts automatically on boot"
 echo "================================================================================"

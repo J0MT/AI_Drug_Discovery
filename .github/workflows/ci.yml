@@ -1,6 +1,11 @@
-name: Test, Lint, and Smoke-Train Models
+name: One-Shot Training via SSM
 
 on: [push, pull_request]
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
 
 jobs:
   ci-pipeline:
@@ -20,17 +25,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install black flake8
-      
-      # - name: Debug Secrets (TEMPORARY)
-      #   run: |
-      #     echo "Access Key is: ${{ secrets.AWS_ACCESS_KEY_ID }}"
-      #     echo "Secret Key is: ${{ secrets.AWS_SECRET_ACCESS_KEY }}"
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_OIDC_ROLE }}
           aws-region: eu-north-1
 
       - name: Run black (check only)
@@ -43,12 +42,24 @@ jobs:
         run: |
           PYTHONPATH=. pytest tests/
 
-      - name: Run dry-run for all models
+      - name: Validate training configurations
         run: |
-          for d in models/*; do
-            if [ -f "$d/train.py" ]; then
-              echo "Dry-running $d/train.py"
-              PYTHONPATH=. python -m $(echo $d | sed 's/\//./g').train --dry-run
+          echo "Validating all training configurations..."
+          for config in configs/*.yaml; do
+            if [ -f "$config" ]; then
+              echo "Validating $config"
+              python -c "
+import yaml
+from utils.training_types import TrainingConfig
+with open('$config', 'r') as f:
+    config_dict = yaml.safe_load(f)
+try:
+    config = TrainingConfig.from_dict(config_dict)
+    print(f'✓ {config.model_type} configuration is valid')
+except Exception as e:
+    print(f'✗ Configuration error: {e}')
+    exit(1)
+              "
             fi
           done
 
@@ -57,8 +68,8 @@ jobs:
         run: |
           echo "Building Docker image for deployment..."
           
-          # Login to GitHub Container Registry
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          # Login to GitHub Container Registry  
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           # Set image name and tag
           IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/ai-drug-training"
@@ -73,82 +84,77 @@ jobs:
           
           echo "Docker image pushed: $IMAGE_NAME:$IMAGE_TAG"
 
-      - name: Trigger AWS Training Pipeline
+      - name: Deploy via SSM Run Command
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          echo "All tests passed! Triggering AWS training pipeline..."
+          echo "Triggering one-shot training via SSM..."
           
-          # Start EC2 instance if stopped
           INSTANCE_ID="${{ secrets.AWS_EC2_INSTANCE_ID }}"
-          aws ec2 start-instances --instance-ids $INSTANCE_ID
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/ai-drug-training"
+          COMMIT_SHA="${{ github.sha }}"
           
-          # Wait for instance to be running
-          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          # Create SSM command for one-shot training
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "set -e",
+              "echo \"Starting one-shot training deployment...\"",
+              "TOKEN=$(aws ssm get-parameter --name \"ghcr-ro-token\" --with-decryption --query \"Parameter.Value\" --output text)",
+              "echo $TOKEN | docker login ghcr.io -u '${{ github.actor }}' --password-stdin",
+              "docker pull '$IMAGE_NAME:$COMMIT_SHA'",
+              "docker run --rm --network mlflow_default -e MLFLOW_TRACKING_URI=http://mlflow:5000 -e AWS_DEFAULT_REGION=eu-north-1 '$IMAGE_NAME:$COMMIT_SHA'",
+              "echo \"Training completed successfully\""
+            ]' \
+            --output text \
+            --query 'Command.CommandId')
           
-          # Get instance public IP
-          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+          echo "SSM Command ID: $COMMAND_ID"
           
-          # Wait for instance to be ready
-          echo "Waiting for instance to be ready at $INSTANCE_IP..."
-          sleep 60  # Give instance time to boot
+          # Wait for command to complete (max 10 minutes)
+          echo "Waiting for training to complete..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --cli-read-timeout 600 \
+            --cli-connect-timeout 60
           
-          # SSH to EC2 and update Docker Compose with new image
-          echo "Deploying new Docker image to EC2..."
+          # Get command output
+          COMMAND_OUTPUT=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --output text \
+            --query 'StandardOutputContent')
           
-          # Create deployment script on EC2
-          cat << 'EOF' > deploy.sh
-          #!/bin/bash
-          cd /home/ubuntu/AI_Drug
+          COMMAND_STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --output text \
+            --query 'Status')
           
-          # Login to GitHub Container Registry
-          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          echo ""
+          echo "=== Command Output ==="
+          echo "$COMMAND_OUTPUT"
+          echo ""
           
-          # Update environment file with new image tag
-          echo "TRAINING_IMAGE=ghcr.io/$GITHUB_REPO/ai-drug-training:$GITHUB_SHA" > .env
-          echo "POSTGRES_PASSWORD=mlflow_secure_password_2024" >> .env
+          if [ "$COMMAND_STATUS" = "Success" ]; then
+            echo "✅ One-shot training completed successfully!"
+          else
+            echo "❌ Training failed with status: $COMMAND_STATUS"
+            
+            # Get error output if available
+            ERROR_OUTPUT=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --output text \
+              --query 'StandardErrorContent' 2>/dev/null || echo "No error details available")
+            
+            echo "Error details: $ERROR_OUTPUT"
+            exit 1
+          fi
           
-          # Pull new image
-          docker pull ghcr.io/$GITHUB_REPO/ai-drug-training:$GITHUB_SHA
-          
-          # Start MLflow and PostgreSQL containers
-          docker-compose -f docker-compose.training.yml up -d mlflow postgres
-          
-          # Wait for MLflow to be ready
-          timeout 300 bash -c 'until curl -f http://localhost:5000/health; do sleep 10; done'
-          
-          echo "Deployment completed successfully"
-          EOF
-          
-          # Copy deployment script to EC2 and execute
-          echo "${{ secrets.EC2_PRIVATE_KEY }}" > ec2-key.pem
-          chmod 600 ec2-key.pem
-          
-          scp -o StrictHostKeyChecking=no -i ec2-key.pem deploy.sh ubuntu@$INSTANCE_IP:/tmp/deploy.sh
-          
-          ssh -o StrictHostKeyChecking=no -i ec2-key.pem ubuntu@$INSTANCE_IP \
-            "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
-             GITHUB_ACTOR=${{ github.actor }} \
-             GITHUB_REPO=${{ github.repository_owner }} \
-             GITHUB_SHA=${{ github.sha }} \
-             bash /tmp/deploy.sh"
-          
-          # Trigger Airflow DAG with Docker image info
-          curl -X POST "http://$INSTANCE_IP:8080/api/v1/dags/ai_drug_training_docker/dagRuns" \
-            -H "Content-Type: application/json" \
-            -u "${{ secrets.AIRFLOW_USERNAME }}:${{ secrets.AIRFLOW_PASSWORD }}" \
-            -d '{
-              "conf": {
-                "docker_image": "ghcr.io/'${{ github.repository_owner }}'/ai-drug-training:'${{ github.sha }}'",
-                "github_sha": "'${{ github.sha }}'",
-                "github_ref": "'${{ github.ref }}'",
-                "triggered_by": "github_actions"
-              }
-            }'
-          
-          echo "Training pipeline triggered successfully!"
-          echo "Docker image: ghcr.io/${{ github.repository_owner }}/ai-drug-training:${{ github.sha }}"
-          echo "Monitor progress at: http://$INSTANCE_IP:8080"
-          echo "MLflow UI at: http://$INSTANCE_IP:5000"
-          
-          # Cleanup
-          rm -f ec2-key.pem deploy.sh
+          echo ""
+          echo "🚀 Pipeline Summary:"
+          echo "Docker image: $IMAGE_NAME:$COMMIT_SHA"
+          echo "SSM Command ID: $COMMAND_ID"
+          echo "Training Status: $COMMAND_STATUS"

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  mlflow:
+    image: python:3.9-slim
+    container_name: mlflow-server
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - AWS_DEFAULT_REGION=eu-north-1
+    volumes:
+      - /opt/mlflow:/opt/mlflow
+    working_dir: /opt/mlflow
+    command: |
+      bash -c "
+        pip install mlflow[extras] boto3 psutil &&
+        mlflow server \
+          --backend-store-uri sqlite:////opt/mlflow/mlruns.db \
+          --default-artifact-root s3://ai-drug-artifacts/ \
+          --host 0.0.0.0 \
+          --port 5000
+      "
+    networks:
+      - mlflow_default
+
+networks:
+  mlflow_default:
+    driver: bridge

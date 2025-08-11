@@ -14,7 +14,10 @@
       "Bash(move ec2-setup-clean.sh ec2-setup.sh)",
       "Bash(mv:*)",
       "Bash(scp:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(find:*)",
+      "Bash(true)",
+      "Bash(python -m pytest tests/ -v)"
     ],
     "deny": []
   }

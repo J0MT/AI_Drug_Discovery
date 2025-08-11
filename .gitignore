@@ -1,7 +1,10 @@
-# Ignore data files
-# *.csv
-# data/*
-/data/data_200.csv
+# Ignore sensitive data files (keep structure visible)
+/data/*.csv
+/data/*.parquet
+/data/*.pkl
+# Keep sample/demo data
+!/data/sample_*.csv
+!/data/demo_*.csv
 dev_test.py
 
 
@@ -21,8 +24,14 @@ __pycache__/
 *.so
 
 # Ignore environment files and credentials
-.env
+.env*
+!.env.example
 secrets.json
+*.pem
+*.key
+config.ini
+credentials.json
+aws-credentials*
 
 # Ignore virtual environments
 venv/
@@ -33,6 +42,8 @@ AI_Drug_conda/
 # Ignore Airflow & DVC internals (if used)
 .airflow/
 dvc.lock
+airflow.cfg
+*.log
 
 # VSCode and system files
 .vscode/
@@ -46,7 +57,22 @@ Thumbs.db
 *.tfvars
 !*.tfvars.example
 
+# Development and temporary files
+*.tmp
+*.temp
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE files (beyond VSCode)
+.idea/
+*.swp
+*.swo
+*~
+
 # Claude Code files (AI development assistant)  
 .claude/
 CLAUDE.md
-projectplan.md
+learning.md

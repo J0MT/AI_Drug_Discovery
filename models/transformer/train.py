@@ -1,25 +1,76 @@
-import argparse
-import yaml
+"""
+Pure training function for Transformer model.
+No external dependencies on MLflow or logging.
+"""
 import pandas as pd
 import torch
-import mlflow
-import subprocess
-import hashlib
-import json
-import os
+from typing import Dict, Any
 
-from utils import preprocess, split_data, evaluate, compute_training_signature
-from models.transformer.model import train as train_model
+from utils import evaluate
+from utils.training_types import TrainingConfig, TrainingMetrics, TrainingResult
+from models.transformer.model import train as train_transformer_model
 
-def compute_training_signature(config, file_paths):
-    h = hashlib.sha256()
-    h.update(json.dumps({k: v for k, v in config.items() if k != "data_path"}, sort_keys=True).encode())
-    for path in file_paths:
-        with open(path, "rb") as f:
-            h.update(f.read())
-    return h.hexdigest()
 
+def train(X_train: pd.DataFrame, 
+          y_train: pd.Series, 
+          config: TrainingConfig) -> TrainingResult:
+    """
+    Pure training function for Transformer model.
+    
+    Args:
+        X_train: Training features
+        y_train: Training targets
+        config: Training configuration
+        
+    Returns:
+        TrainingResult with trained model, metrics, and metadata
+    """
+    # Convert config to the format expected by the model
+    model_config = config.__dict__.copy()
+    model_config["input_dim"] = X_train.shape[1]
+    
+    # Train the model (pure ML logic)
+    model = train_transformer_model(X_train, y_train, model_config)
+    
+    # Make predictions for evaluation
+    with torch.no_grad():
+        X_tensor = torch.tensor(X_train.values, dtype=torch.float32)
+        train_preds = model(X_tensor).squeeze().numpy()
+    
+    # Evaluate model performance
+    raw_metrics = evaluate(y_train, train_preds)
+    
+    # Convert to standard metrics format
+    metrics = TrainingMetrics(
+        rmse=raw_metrics["rmse"],
+        r2=raw_metrics["r2"],
+        mae=raw_metrics.get("mae", 0.0)
+    )
+    
+    # Model metadata
+    model_info = {
+        "model_type": "transformer",
+        "input_dim": X_train.shape[1],
+        "num_parameters": sum(p.numel() for p in model.parameters()),
+        "architecture": str(model.__class__.__name__)
+    }
+    
+    return TrainingResult(
+        model=model,
+        metrics=metrics,
+        model_info=model_info,
+        signature=""
+    )
+
+
+# Legacy CLI interface for backward compatibility
 def main(args):
+    """Legacy main function for CLI usage."""
+    import argparse
+    import yaml
+    import subprocess
+    from utils import preprocess, split_data
+    
     if args.dry_run:
         print("Dry run successful.")
         return
@@ -27,35 +78,20 @@ def main(args):
     subprocess.run(["dvc", "pull"], check=True)
 
     with open(args.config, "r") as f:
-        config = yaml.safe_load(f)
+        config_dict = yaml.safe_load(f)
 
-    df = pd.read_csv(config["data_path"])
+    df = pd.read_csv(config_dict["data_path"])
     X, y = preprocess(df)
     X_train, X_test, y_train, y_test = split_data(X, y)
-    config["input_dim"] = X_train.shape[1]
-
-    mlflow.set_tracking_uri("http://mlflow:5000")
-    mlflow.set_experiment(config.get("model_type", "default"))
-
-    signature = compute_training_signature(config, config["signature_files"])
-    existing_runs = mlflow.search_runs(filter_string=f"tags.signature = '{signature}'")
-
-    if not existing_runs.empty:
-        print("Model already trained with this config + code. Skipping.")
-        return
-
-    with mlflow.start_run():
-        mlflow.set_tag("signature", signature)
-        mlflow.log_params({k: v for k, v in config.items() if k not in ["data_path", "signature_files"]})
-        model = train_model(X_train, y_train, config)
-
-        with torch.no_grad():
-            preds = model(torch.tensor(X_test.values, dtype=torch.float32)).squeeze().numpy()
-
-        metrics = evaluate(y_test, preds)
-        mlflow.log_metrics(metrics)
-
-        print(f"[{config['model_type'].capitalize()}] RMSE: {metrics['rmse']:.4f} | R²: {metrics['r2']:.4f}")
+    
+    # Convert to TrainingConfig
+    config = TrainingConfig(**config_dict)
+    
+    # Use pure training function
+    result = train(X_train, y_train, config)
+    
+    print(f"[{config.model_type.capitalize()}] RMSE: {result.metrics.rmse:.4f} | R²: {result.metrics.r2:.4f}")
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

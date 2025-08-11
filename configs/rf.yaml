@@ -1,0 +1,16 @@
+n_estimators: 100
+max_depth: 10
+min_samples_split: 5
+min_samples_leaf: 2
+max_features: sqrt
+random_state: 42
+
+model_type: rf
+model_path: models/rf
+model_file: train.py
+model_script: models/rf/train.py
+model_source: models/rf/model.py
+config_path: configs/rf.yaml
+signature_files:
+  - models/rf/model.py
+  - models/rf/train.py

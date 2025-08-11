@@ -1,9 +1,21 @@
 FROM python:3.9-slim
 WORKDIR /app
-COPY . .
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y git curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better Docker layer caching
+COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt && \
-    apt-get update && apt-get install -y git && \
-    pip install dvc[s3] mlflow
-    
-CMD ["python", "train_dispatch.py"]
+    pip install dvc[s3] mlflow[extras] boto3
+
+# Copy source code
+COPY . .
+
+# Set environment defaults
+ENV MLFLOW_TRACKING_URI=http://mlflow:5000
+ENV AWS_DEFAULT_REGION=eu-north-1
+
+CMD ["python", "train_dispatch_pure.py"]
