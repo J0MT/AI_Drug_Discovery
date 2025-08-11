@@ -48,17 +48,7 @@ jobs:
           for config in configs/*.yaml; do
             if [ -f "$config" ]; then
               echo "Validating $config"
-              python -c "
-import yaml
-from utils.training_types import TrainingConfig
-with open('$config', 'r') as f:
-    config_dict = yaml.safe_load(f)
-try:
-    config = TrainingConfig.from_dict(config_dict)
-    print(f'✓ {config.model_type} configuration is valid')
-except Exception as e:
-    print(f'✗ Configuration error: {e}')
-    exit(1)"
+              python -c "import yaml; from utils.training_types import TrainingConfig; config_dict = yaml.safe_load(open('$config')); config = TrainingConfig.from_dict(config_dict); print(f'✓ {config.model_type} configuration is valid')" || (echo "✗ Configuration error in $config" && exit 1)
             fi
           done
 
