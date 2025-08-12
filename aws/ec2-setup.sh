@@ -21,6 +21,16 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plu
 # Add ubuntu user to docker group
 sudo usermod -aG docker ubuntu
 
+# Install and configure SSM agent
+echo "Configuring SSM Agent..."
+sudo systemctl enable amazon-ssm-agent
+sudo systemctl start amazon-ssm-agent
+sudo systemctl status amazon-ssm-agent --no-pager
+
+# Wait for SSM agent to register
+echo "Waiting for SSM agent to register (30 seconds)..."
+sleep 30
+
 # Install AWS CLI v2
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
