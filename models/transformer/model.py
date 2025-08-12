@@ -16,7 +16,18 @@ class TransformerRegressor(nn.Module):
         return self.output(x[:, 0, :])
 
 
-def train(X_train, y_train, config):
+def train(X_train, y_train, config=None):
+    # Default config for testing when no config is provided
+    if config is None:
+        config = {
+            "input_dim": X_train.shape[1],
+            "d_model": 64,
+            "nhead": 4,
+            "num_layers": 2,
+            "lr": 0.001,
+            "epochs": 10,
+        }
+
     required_keys = ["input_dim", "d_model", "nhead", "num_layers", "lr", "epochs"]
     for k in required_keys:
         if k not in config:

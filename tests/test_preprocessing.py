@@ -14,6 +14,8 @@ def test_preprocessing_and_split():
         n_samples = 200
         df = pd.DataFrame(
             {
+                "pIC50": np.random.uniform(4, 9, n_samples),
+                "docking_score": np.random.uniform(-10, -2, n_samples),
                 "IC50_nM": np.random.uniform(0.1, 1000, n_samples),
                 "Molecular_Weight": np.random.uniform(100, 800, n_samples),
                 "LogP": np.random.uniform(-2, 8, n_samples),
@@ -26,6 +28,9 @@ def test_preprocessing_and_split():
                 ),
             }
         )
+        # Add some mock PubchemFP columns that preprocess() expects
+        for i in range(5):
+            df[f"PubchemFP{i}"] = np.random.randint(0, 2, n_samples)
 
     X, y = preprocess(df)
     X_train, X_test, y_train, y_test = split_data(X, y)
