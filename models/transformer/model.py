@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class TransformerRegressor(nn.Module):
     def __init__(self, input_dim, d_model, nhead, num_layers):
         super().__init__()
@@ -25,7 +26,7 @@ def train(X_train, y_train, config):
         input_dim=config["input_dim"],
         d_model=config["d_model"],
         nhead=config["nhead"],
-        num_layers=config["num_layers"]
+        num_layers=config["num_layers"],
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
     criterion = nn.MSELoss()
