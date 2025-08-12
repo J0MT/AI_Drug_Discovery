@@ -3,9 +3,9 @@ Pure training function for Transformer model.
 No external dependencies on MLflow or logging.
 """
 
+import argparse
 import pandas as pd
 import torch
-from typing import Dict, Any
 
 from utils import evaluate
 from utils.training_types import TrainingConfig, TrainingMetrics, TrainingResult
@@ -62,7 +62,6 @@ def train(
 # Legacy CLI interface for backward compatibility
 def main(args):
     """Legacy main function for CLI usage."""
-    import argparse
     import yaml
     import subprocess
     from utils import preprocess, split_data
@@ -87,7 +86,8 @@ def main(args):
     result = train(X_train, y_train, config)
 
     print(
-        f"[{config.model_type.capitalize()}] RMSE: {result.metrics.rmse:.4f} | R²: {result.metrics.r2:.4f}"
+        f"[{config.model_type.capitalize()}] "
+        f"RMSE: {result.metrics.rmse:.4f} | R²: {result.metrics.r2:.4f}"
     )
 
 

@@ -3,7 +3,7 @@ Standardized types and interfaces for training functions.
 This ensures all models follow the same input/output contract.
 """
 
-from typing import Dict, Any, Tuple, Protocol
+from typing import Dict, Any, Protocol
 from dataclasses import dataclass
 import pandas as pd
 

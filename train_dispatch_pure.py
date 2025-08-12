@@ -33,7 +33,7 @@ def compute_composite_run_key(config: TrainingConfig) -> str:
             .decode()
             .strip()
         )
-    except:
+    except Exception:
         git_sha = "no-git"
 
     # Hash the config (normalize by serializing)
@@ -45,7 +45,7 @@ def compute_composite_run_key(config: TrainingConfig) -> str:
     try:
         data_stat = os.stat("data/data_200.csv")
         data_hash = hashlib.sha256(str(data_stat.st_mtime).encode()).hexdigest()[:8]
-    except:
+    except Exception:
         data_hash = "no-data"
 
     # Composite key format: git_sha:config_hash:data_hash
@@ -109,7 +109,7 @@ def main():
         if orchestrator.run_exists_with_tag("composite_run_key", composite_key):
             print(f"    SKIP: Run with key {composite_key} already exists")
         else:
-            print(f"    TRAIN: New composite key, will train")
+            print("    TRAIN: New composite key, will train")
             # Add composite key to config for tagging
             config.composite_run_key = composite_key
             configs_to_train.append(config)
@@ -142,7 +142,8 @@ def main():
         print("\nResults:")
         for result in results:
             print(
-                f"  {result.model_info['model_type']}: RMSE={result.metrics.rmse:.4f}, R²={result.metrics.r2:.4f}"
+                f"  {result.model_info['model_type']}: "
+                f"RMSE={result.metrics.rmse:.4f}, R²={result.metrics.r2:.4f}"
             )
 
     print(f"\nMLflow UI: {mlflow_uri}")
