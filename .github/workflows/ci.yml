@@ -52,12 +52,26 @@ jobs:
             fi
           done
 
-      - name: Skip Docker Build (Using Existing Container)
+      - name: Build and Push Docker Image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          echo "Skipping Docker build - using existing container for testing..."
-          echo "Using existing image: ghcr.io/j0mt/ai-drug-training:latest"
-          echo "Will revert to per-commit tagging once testing is complete"
+          echo "Building Docker image for deployment..."
+          
+          # Login to GitHub Container Registry  
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Set image name and tag (convert to lowercase)
+          IMAGE_NAME="ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/ai-drug-training"
+          IMAGE_TAG="${{ github.sha }}"
+          
+          # Build Docker image
+          docker build -t $IMAGE_NAME:$IMAGE_TAG -t $IMAGE_NAME:latest .
+          
+          # Push to registry
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker push $IMAGE_NAME:latest
+          
+          echo "Docker image pushed: $IMAGE_NAME:$IMAGE_TAG"
 
       - name: Deploy via SSM Run Command
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -66,7 +80,7 @@ jobs:
           
           INSTANCE_ID="${{ secrets.AWS_EC2_INSTANCE_ID }}"
           IMAGE_NAME="ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/ai-drug-training"
-          IMAGE_TAG="latest"  # Using latest for testing instead of commit SHA
+          COMMIT_SHA="${{ github.sha }}"
           
           # Create SSM command for one-shot training
           COMMAND_ID=$(aws ssm send-command \
@@ -77,8 +91,8 @@ jobs:
               "echo \"Starting one-shot training deployment...\"",
               "TOKEN=$(aws ssm get-parameter --name \"ghcr-ro-token\" --with-decryption --query \"Parameter.Value\" --output text)",
               "echo $TOKEN | docker login ghcr.io -u '${{ github.actor }}' --password-stdin",
-              "docker pull '$IMAGE_NAME:$IMAGE_TAG'",
-              "docker run --rm --network mlflow_default -e MLFLOW_TRACKING_URI=http://mlflow:5000 -e AWS_DEFAULT_REGION=eu-north-1 '$IMAGE_NAME:$IMAGE_TAG'",
+              "docker pull '$IMAGE_NAME:$COMMIT_SHA'",
+              "docker run --rm --network mlflow_default -e MLFLOW_TRACKING_URI=http://mlflow:5000 -e AWS_DEFAULT_REGION=eu-north-1 '$IMAGE_NAME:$COMMIT_SHA'",
               "echo \"Training completed successfully\""
             ]' \
             --output text \
@@ -86,12 +100,12 @@ jobs:
           
           echo "SSM Command ID: $COMMAND_ID"
           
-          # Wait for command to complete (max 20 minutes)
+          # Wait for command to complete (max 1 hour)
           echo "Waiting for training to complete..."
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
             --instance-id "$INSTANCE_ID" \
-            --cli-read-timeout 1200 \
+            --cli-read-timeout 3600 \
             --cli-connect-timeout 60
           
           # Get command output
@@ -130,6 +144,6 @@ jobs:
           
           echo ""
           echo "🚀 Pipeline Summary:"
-          echo "Docker image: $IMAGE_NAME:$IMAGE_TAG"
+          echo "Docker image: $IMAGE_NAME:$COMMIT_SHA"
           echo "SSM Command ID: $COMMAND_ID"
           echo "Training Status: $COMMAND_STATUS"
