@@ -197,7 +197,7 @@ resource "aws_iam_role" "github_actions_role" {
   }
 }
 
-# POLICY ==== SSM permissions for GitHub Actions
+# POLICY ==== SSM and S3 permissions for GitHub Actions
 resource "aws_iam_role_policy" "github_actions_policy" {
   name = "github-actions-policy"
   role = aws_iam_role.github_actions_role.id
@@ -225,6 +225,19 @@ resource "aws_iam_role_policy" "github_actions_policy" {
           "ssm:ListCommands"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          data.aws_s3_bucket.existing_dvc_storage.arn,
+          "${data.aws_s3_bucket.existing_dvc_storage.arn}/*"
+        ]
       }
     ]
   })

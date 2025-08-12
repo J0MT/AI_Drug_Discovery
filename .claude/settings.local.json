@@ -17,7 +17,8 @@
       "Bash(ssh:*)",
       "Bash(find:*)",
       "Bash(true)",
-      "Bash(python -m pytest tests/ -v)"
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(PYTHONPATH=. pytest tests/test_model_training.py::test_model_training[rf] -v)"
     ],
     "deny": []
   }
