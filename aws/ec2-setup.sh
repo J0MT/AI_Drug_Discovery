@@ -56,7 +56,7 @@ GHCR_TOKEN=$(aws ssm get-parameter --name ghcr-ro-token --with-decryption --quer
 
 # Login with proper error handling
 if [ ! -z "$GHCR_TOKEN" ]; then
-    echo $GHCR_TOKEN | docker login ghcr.io -u j0mt --password-stdin
+    sudo -u ubuntu bash -c "echo $GHCR_TOKEN | docker login ghcr.io -u j0mt --password-stdin"
     if [ $? -eq 0 ]; then
         echo "Successfully logged into GHCR"
     else

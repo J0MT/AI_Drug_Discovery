@@ -14,19 +14,19 @@ services:
     command: |
       bash -c "
         pip install mlflow[extras] boto3 psutil &&
-        export MLFLOW_HOST=0.0.0.0 && \
         mlflow server \
           --backend-store-uri ${MLFLOW_BACKEND_STORE_URI:-sqlite:////opt/mlflow/mlruns.db} \
           --default-artifact-root ${MLFLOW_ARTIFACT_ROOT:-s3://ai-drug-artifacts/} \
           --host 0.0.0.0 \
           --port 5000 \
-          --gunicorn-opts '--bind 0.0.0.0:5000'
+          --gunicorn-opts '--workers 4 --threads 4 --timeout 120'
       "
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000')"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
-      retries: 12
+      retries: 10
+      start_period: 20s
     networks:
       - default
 
