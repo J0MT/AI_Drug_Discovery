@@ -22,10 +22,11 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plu
 sudo usermod -aG docker ubuntu
 
 # Install and configure SSM agent
-echo "Configuring SSM Agent..."
-sudo systemctl enable amazon-ssm-agent
-sudo systemctl start amazon-ssm-agent
-sudo systemctl status amazon-ssm-agent --no-pager
+echo "Installing and configuring SSM Agent..."
+sudo snap install amazon-ssm-agent --classic
+sudo systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent
+sudo systemctl start snap.amazon-ssm-agent.amazon-ssm-agent
+sudo systemctl status snap.amazon-ssm-agent.amazon-ssm-agent --no-pager
 
 # Wait for SSM agent to register
 echo "Waiting for SSM agent to register (30 seconds)..."
@@ -43,11 +44,29 @@ sudo chown -R ubuntu:ubuntu /opt/mlflow
 
 # Clone the project repository  
 cd /home/ubuntu
-git clone https://github.com/${github_repo}/AI_Drug.git AI_Drug
+git clone https://github.com/J0MT/AI_Drug_Discovery.git AI_Drug
 cd /home/ubuntu/AI_Drug
 
 # Make ubuntu owner of project directory
 sudo chown -R ubuntu:ubuntu /home/ubuntu/AI_Drug
+
+# Login to GitHub Container Registry using SSM parameter
+echo "Logging into GitHub Container Registry..."
+GHCR_TOKEN=$(aws ssm get-parameter --name ghcr-ro-token --with-decryption --query 'Parameter.Value' --output text --region eu-north-1)
+
+# Login with proper error handling
+if [ ! -z "$GHCR_TOKEN" ]; then
+    echo $GHCR_TOKEN | docker login ghcr.io -u j0mt --password-stdin
+    if [ $? -eq 0 ]; then
+        echo "Successfully logged into GHCR"
+    else
+        echo "Failed to login to GHCR"
+        exit 1
+    fi
+else
+    echo "Failed to retrieve GHCR token from SSM"
+    exit 1
+fi
 
 # Start persistent MLflow service with Docker Compose
 echo "Starting persistent MLflow service..."

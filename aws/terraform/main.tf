@@ -249,6 +249,15 @@ resource "aws_security_group" "training_sg" {
   name        = "ai-drug-discovery-training-sg"
   description = "Security group for AI drug discovery training instance"
 
+  # SSH access from your IP
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["${var.your_ip}/32"]
+    description = "SSH access"
+  }
+
   # MLflow UI access from your IP
   ingress {
     from_port   = 5000

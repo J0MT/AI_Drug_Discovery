@@ -18,7 +18,9 @@
       "Bash(find:*)",
       "Bash(true)",
       "Bash(python -m pytest tests/ -v)",
-      "Bash(PYTHONPATH=. pytest tests/test_model_training.py::test_model_training[rf] -v)"
+      "Bash(PYTHONPATH=. pytest tests/test_model_training.py::test_model_training[rf] -v)",
+      "Bash(python train_dispatch_pure.py:*)",
+      "Bash(docker:*)"
     ],
     "deny": []
   }
