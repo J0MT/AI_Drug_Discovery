@@ -39,7 +39,7 @@ services:
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-eu-north-1}
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - RUN_MODE=${RUN_MODE:-prod}
-    command: ["python", "train_dispatch_pure.py"]
+    command: ["python", "train_dispatch.py"]
     profiles: ["training"]
 
 networks:

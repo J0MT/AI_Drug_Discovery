@@ -9,8 +9,6 @@ from utils import preprocess, split_data
 
 # Dynamic import paths for each model
 MODEL_PATHS = {
-    "rf": "models.rf.model",
-    "xgb": "models.xgb.model",
     "transformer": "models.transformer.model",
 }
 

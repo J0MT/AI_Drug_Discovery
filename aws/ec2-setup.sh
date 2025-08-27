@@ -18,8 +18,10 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 sudo apt-get update -y
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-compose
 
-# Add ubuntu user to docker group
+# Add ubuntu user to docker group and enable Docker systemd service
 sudo usermod -aG docker ubuntu
+sudo systemctl enable docker
+sudo systemctl enable containerd
 
 # Install and configure SSM agent
 echo "Installing and configuring SSM Agent..."
@@ -68,9 +70,15 @@ else
     exit 1
 fi
 
-# Start persistent MLflow service with Docker Compose
-echo "Starting persistent MLflow service..."
-docker-compose up -d
+# Install MLflow systemd service
+echo "Installing MLflow systemd service..."
+sudo cp /home/ubuntu/AI_Drug/aws/mlflow.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable mlflow.service
+
+# Start MLflow service
+echo "Starting MLflow service via systemd..."
+sudo systemctl start mlflow.service
 
 # Wait for MLflow service to be ready
 echo "Waiting for MLflow service to be ready..."
@@ -78,6 +86,7 @@ sleep 30
 
 # Verify MLflow is running
 echo "Checking MLflow service status..."
+sudo systemctl status mlflow.service --no-pager
 docker-compose ps
 
 # Get public IP for access URLs
@@ -118,19 +127,31 @@ EOF
 
 chmod +x /home/ubuntu/check-mlflow.sh
 
-# Create auto-start script for reboots
+# Create MLflow management scripts
 cat > /home/ubuntu/start-mlflow.sh << 'EOF' 
 #!/bin/bash
-cd /home/ubuntu/AI_Drug
-echo "Starting MLflow service..."
-docker-compose up -d
-echo "MLflow started. Check status with: /home/ubuntu/check-mlflow.sh"
+echo "Starting MLflow service via systemd..."
+sudo systemctl start mlflow.service
+sudo systemctl status mlflow.service --no-pager
+EOF
+
+cat > /home/ubuntu/stop-mlflow.sh << 'EOF'
+#!/bin/bash
+echo "Stopping MLflow service..."
+sudo systemctl stop mlflow.service
+sudo systemctl status mlflow.service --no-pager
+EOF
+
+cat > /home/ubuntu/restart-mlflow.sh << 'EOF'
+#!/bin/bash
+echo "Restarting MLflow service..."
+sudo systemctl restart mlflow.service
+sudo systemctl status mlflow.service --no-pager
 EOF
 
 chmod +x /home/ubuntu/start-mlflow.sh
-
-# Add to crontab for auto-start on boot
-(crontab -l 2>/dev/null; echo "@reboot sleep 30 && /home/ubuntu/start-mlflow.sh") | crontab -
+chmod +x /home/ubuntu/stop-mlflow.sh
+chmod +x /home/ubuntu/restart-mlflow.sh
 
 echo "================================================================================"
 echo "AI Drug Discovery One-Shot Training Environment Ready"
@@ -158,5 +179,5 @@ echo "Data Persistence:"
 echo "  - MLflow DB: /opt/mlflow/mlruns.db (EBS persistent)"
 echo "  - Model Artifacts: S3 bucket (permanent storage)"
 echo ""
-echo "Auto-restart: MLflow restarts automatically on boot"
+echo "Auto-restart: MLflow managed by systemd (reliable boot startup)"
 echo "================================================================================"

@@ -5,3 +5,9 @@ __pycache__/
 data/
 .dvc/cache/
 .env
+aws/
+.github/
+tests/
+*.md
+airflow/
+learning.md

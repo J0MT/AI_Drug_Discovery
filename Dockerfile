@@ -11,11 +11,15 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt && \
     pip install dvc[s3] mlflow[extras] boto3
 
-# Copy source code
-COPY . .
+# Copy only training-related files
+COPY models/ ./models/
+COPY utils/ ./utils/
+COPY configs/ ./configs/
+COPY train_dispatch.py .
+COPY *.dvc ./
 
 # Set environment defaults
 ENV MLFLOW_TRACKING_URI=http://mlflow:5000
 ENV AWS_DEFAULT_REGION=eu-north-1
 
-CMD ["python", "train_dispatch_pure.py"]
+CMD ["python", "train_dispatch.py"]
