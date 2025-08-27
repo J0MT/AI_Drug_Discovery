@@ -58,7 +58,7 @@ def main():
     print("Starting training dispatch with composite run key idempotency...")
 
     # Get MLflow tracking URI from environment (default to internal Docker compose service name)
-    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000") 
+    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
     print(f"MLflow tracking URI: {mlflow_uri}")
 
     # Initialize orchestrator
