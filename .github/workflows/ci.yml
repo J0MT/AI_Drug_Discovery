@@ -126,7 +126,7 @@ jobs:
               "TOKEN=$(aws ssm get-parameter --name \"ghcr-ro-token\" --with-decryption --query \"Parameter.Value\" --output text)",
               "echo $TOKEN | docker login ghcr.io -u '${{ github.actor }}' --password-stdin",
               "docker pull '$IMAGE_NAME:$IMAGE_TAG'",
-              "docker run --rm --network host -e MLFLOW_TRACKING_URI=http://localhost:5000 -e AWS_DEFAULT_REGION=eu-north-1 '$IMAGE_NAME:$IMAGE_TAG'",
+              "docker run --rm --network ai_drug_default -e MLFLOW_TRACKING_URI=http://mlflow-server:5000 -e AWS_DEFAULT_REGION=eu-north-1 '$IMAGE_NAME:$IMAGE_TAG'",
               "echo \"Training completed successfully\""
             ]' \
             --output text \
@@ -134,13 +134,14 @@ jobs:
           
           echo "SSM Command ID: $COMMAND_ID"
           
-          # Wait for command to complete (max 1 hour)
+          # Wait for command to complete (max 30 minutes for training)
           echo "Waiting for training to complete..."
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
             --instance-id "$INSTANCE_ID" \
-            --cli-read-timeout 3600 \
-            --cli-connect-timeout 60
+            --cli-read-timeout 1800 \
+            --cli-connect-timeout 60 \
+            --max-attempts 60
           
           # Get command output
           COMMAND_OUTPUT=$(aws ssm get-command-invocation \
