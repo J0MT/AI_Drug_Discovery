@@ -11,12 +11,17 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt && \
     pip install dvc[s3] mlflow[extras] boto3
 
-# Copy only training-related files
+# Copy git repo and DVC files for data access
+COPY .git/ ./.git/
+COPY .dvc/ ./.dvc/
+COPY .dvcignore ./
+COPY data/ ./data/
+
+# Copy training-related files
 COPY models/ ./models/
 COPY utils/ ./utils/
 COPY configs/ ./configs/
 COPY train_dispatch.py .
-COPY *.dvc ./
 
 # Set environment defaults
 ENV MLFLOW_TRACKING_URI=http://mlflow:5000

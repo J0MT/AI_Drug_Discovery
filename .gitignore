@@ -72,7 +72,7 @@ htmlcov/
 *.swo
 *~
 
-# Claude Code files (AI development assistant)  
+# Development notes and configuration
 .claude/
 CLAUDE.md
 learning.md

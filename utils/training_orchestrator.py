@@ -41,7 +41,7 @@ class TrainingOrchestrator:
             Training function that follows the standard interface
         """
         # Load the module containing the training function
-        script_path = Path(config.model_script.replace(".", "/") + ".py")
+        script_path = Path(config.model_script)
 
         spec = importlib.util.spec_from_file_location("training_module", script_path)
         module = importlib.util.module_from_spec(spec)
