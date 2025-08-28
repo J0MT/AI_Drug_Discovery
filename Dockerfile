@@ -15,7 +15,8 @@ RUN pip install --upgrade pip && \
 COPY .git/ ./.git/
 COPY .dvc/ ./.dvc/
 COPY .dvcignore ./
-COPY data/ ./data/
+COPY data/*.dvc ./data/
+RUN mkdir -p ./data
 
 # Copy training-related files
 COPY models/ ./models/
