@@ -52,28 +52,28 @@ jobs:
             fi
           done
 
-      - name: Build and Push Training Container
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          echo "Building training container with commit ${{ github.sha }}..."
-          
-          # Set image names
-          IMAGE_NAME="ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/ai-drug-training"
-          IMAGE_TAG="${{ github.sha }}"
-          
-          # Login to GitHub Container Registry
-          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # Build the training container
-          docker build -t "$IMAGE_NAME:$IMAGE_TAG" -t "$IMAGE_NAME:latest" .
-          
-          # Push both tags
-          docker push "$IMAGE_NAME:$IMAGE_TAG"
-          docker push "$IMAGE_NAME:latest"
-          
-          echo "✅ Built and pushed training container:"
-          echo "  - $IMAGE_NAME:$IMAGE_TAG"
-          echo "  - $IMAGE_NAME:latest"
+      # - name: Build and Push Training Container
+      #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      #   run: |
+      #     echo "Building training container with commit ${{ github.sha }}..."
+      #     
+      #     # Set image names
+      #     IMAGE_NAME="ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/ai-drug-training"
+      #     IMAGE_TAG="${{ github.sha }}"
+      #     
+      #     # Login to GitHub Container Registry
+      #     echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      #     
+      #     # Build the training container
+      #     docker build -t "$IMAGE_NAME:$IMAGE_TAG" -t "$IMAGE_NAME:latest" .
+      #     
+      #     # Push both tags
+      #     docker push "$IMAGE_NAME:$IMAGE_TAG"
+      #     docker push "$IMAGE_NAME:latest"
+      #     
+      #     echo "✅ Built and pushed training container:"
+      #     echo "  - $IMAGE_NAME:$IMAGE_TAG"
+      #     echo "  - $IMAGE_NAME:latest"
 
       - name: Ensure EC2 Instance is Running
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
