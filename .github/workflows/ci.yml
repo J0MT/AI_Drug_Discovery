@@ -126,7 +126,7 @@ jobs:
               "TOKEN=$(aws ssm get-parameter --name \"ghcr-ro-token\" --with-decryption --query \"Parameter.Value\" --output text)",
               "echo $TOKEN | docker login ghcr.io -u '${{ github.actor }}' --password-stdin",
               "docker pull '$IMAGE_NAME:$IMAGE_TAG'",
-              "docker run --rm --network ai_drug_default -e MLFLOW_TRACKING_URI=http://mlflow-server:5000 -e AWS_DEFAULT_REGION=eu-north-1 '$IMAGE_NAME:$IMAGE_TAG'",
+              "docker run --rm --network mlflow_default -e MLFLOW_TRACKING_URI=http://mlflow-server:5000 -e AWS_DEFAULT_REGION=eu-north-1 '$IMAGE_NAME:$IMAGE_TAG'",
               "echo \"Training completed successfully\""
             ]' \
             --output text \
