@@ -305,7 +305,7 @@ resource "aws_instance" "training_instance" {
   # Persistent storage for MLflow database
   root_block_device {
     volume_type = "gp3"
-    volume_size = 50
+    volume_size = 100
     encrypted   = true
   }
 
