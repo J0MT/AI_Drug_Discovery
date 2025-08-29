@@ -70,15 +70,10 @@ else
     exit 1
 fi
 
-# Install MLflow systemd service
-echo "Installing MLflow systemd service..."
-sudo cp /home/ubuntu/AI_Drug/aws/mlflow.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable mlflow.service
-
-# Start MLflow service
-echo "Starting MLflow service via systemd..."
-sudo systemctl start mlflow.service
+# Start MLflow service using docker-compose
+echo "Starting MLflow service via docker-compose..."
+cd /home/ubuntu/AI_Drug
+sudo -u ubuntu docker-compose up -d
 
 # Wait for MLflow service to be ready
 echo "Waiting for MLflow service to be ready..."
@@ -86,7 +81,7 @@ sleep 30
 
 # Verify MLflow is running
 echo "Checking MLflow service status..."
-sudo systemctl status mlflow.service --no-pager
+cd /home/ubuntu/AI_Drug
 docker-compose ps
 
 # Get public IP for access URLs
@@ -130,23 +125,26 @@ chmod +x /home/ubuntu/check-mlflow.sh
 # Create MLflow management scripts
 cat > /home/ubuntu/start-mlflow.sh << 'EOF' 
 #!/bin/bash
-echo "Starting MLflow service via systemd..."
-sudo systemctl start mlflow.service
-sudo systemctl status mlflow.service --no-pager
+echo "Starting MLflow service via docker-compose..."
+cd /home/ubuntu/AI_Drug
+docker-compose up -d
+docker-compose ps
 EOF
 
 cat > /home/ubuntu/stop-mlflow.sh << 'EOF'
 #!/bin/bash
 echo "Stopping MLflow service..."
-sudo systemctl stop mlflow.service
-sudo systemctl status mlflow.service --no-pager
+cd /home/ubuntu/AI_Drug
+docker-compose down
 EOF
 
 cat > /home/ubuntu/restart-mlflow.sh << 'EOF'
 #!/bin/bash
 echo "Restarting MLflow service..."
-sudo systemctl restart mlflow.service
-sudo systemctl status mlflow.service --no-pager
+cd /home/ubuntu/AI_Drug
+docker-compose down
+docker-compose up -d
+docker-compose ps
 EOF
 
 chmod +x /home/ubuntu/start-mlflow.sh
@@ -179,5 +177,5 @@ echo "Data Persistence:"
 echo "  - MLflow DB: /opt/mlflow/mlruns.db (EBS persistent)"
 echo "  - Model Artifacts: S3 bucket (permanent storage)"
 echo ""
-echo "Auto-restart: MLflow managed by systemd (reliable boot startup)"
+echo "Auto-restart: MLflow managed by docker-compose (reliable container startup)"
 echo "================================================================================"
