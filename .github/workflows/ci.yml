@@ -140,8 +140,7 @@ jobs:
             --command-id "$COMMAND_ID" \
             --instance-id "$INSTANCE_ID" \
             --cli-read-timeout 1800 \
-            --cli-connect-timeout 60 \
-            --max-attempts 60
+            --cli-connect-timeout 60
           
           # Get command output
           COMMAND_OUTPUT=$(aws ssm get-command-invocation \
