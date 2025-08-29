@@ -113,8 +113,8 @@ jobs:
           echo "Triggering one-shot training via SSM..."
           
           INSTANCE_ID="${{ secrets.AWS_EC2_INSTANCE_ID }}"
-          IMAGE_NAME="ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/ai-drug-training"
-          IMAGE_TAG="${{ github.sha }}"
+          IMAGE_NAME="ghcr.io/j0mt/ai-drug-training"
+          IMAGE_TAG="latest"
           
           # Create SSM command for one-shot training
           COMMAND_ID=$(aws ssm send-command \
