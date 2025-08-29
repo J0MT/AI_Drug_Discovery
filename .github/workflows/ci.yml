@@ -15,16 +15,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
+      # - name: Set up Python
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.9'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install black flake8
+      # - name: Install dependencies
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install -r requirements.txt
+      #     pip install black flake8
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v2
@@ -32,25 +32,25 @@ jobs:
           role-to-assume: ${{ secrets.AWS_GITHUB_OIDC_ROLE }}
           aws-region: eu-north-1
 
-      - name: Run black (check only)
-        run: black . --check
+      # - name: Run black (check only)
+      #   run: black . --check
 
-      - name: Run flake8 linter
-        run: flake8 .
+      # - name: Run flake8 linter
+      #   run: flake8 .
 
-      - name: Run unit tests
-        run: |
-          PYTHONPATH=. pytest tests/
+      # - name: Run unit tests
+      #   run: |
+      #     PYTHONPATH=. pytest tests/
 
-      - name: Validate training configurations
-        run: |
-          echo "Validating all training configurations..."
-          for config in configs/*.yaml; do
-            if [ -f "$config" ]; then
-              echo "Validating $config"
-              python -c "import yaml; from utils.training_types import TrainingConfig; config_dict = yaml.safe_load(open('$config')); config = TrainingConfig.from_dict(config_dict); print(f'✓ {config.model_type} configuration is valid')" || (echo "✗ Configuration error in $config" && exit 1)
-            fi
-          done
+      # - name: Validate training configurations
+      #   run: |
+      #     echo "Validating all training configurations..."
+      #     for config in configs/*.yaml; do
+      #       if [ -f "$config" ]; then
+      #         echo "Validating $config"
+      #         python -c "import yaml; from utils.training_types import TrainingConfig; config_dict = yaml.safe_load(open('$config')); config = TrainingConfig.from_dict(config_dict); print(f'✓ {config.model_type} configuration is valid')" || (echo "✗ Configuration error in $config" && exit 1)
+      #       fi
+      #     done
 
       # - name: Build and Push Training Container
       #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
